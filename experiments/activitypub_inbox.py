@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 
 processed_activity_ids = set()
+local_profiles = {}
 
 
 def extract_hostname(value: object):
@@ -42,6 +43,17 @@ def validate_activity(activity: dict) -> bool:
 
 
 def handle_follow(activity: dict) -> None:
+    target_profile = local_profiles.get(activity["object"])
+
+    if target_profile is None:
+        print("Rejected Follow activity:", activity)
+        return
+
+    if target_profile["is_private"]:
+        target_profile["pending_follow_requests"].add(activity["actor"])
+    else:
+        target_profile["followers"].add(activity["actor"])
+
     print("Follow activity:", activity)
 
 
@@ -83,16 +95,23 @@ def dispatch_activity(activity: dict) -> None:
 
 
 if __name__ == "__main__":
+    local_profile_url = "https://social.example/users/bob"
+    local_profiles[local_profile_url] = {
+        "is_private": False,
+        "followers": set(),
+        "pending_follow_requests": set(),
+    }
+
     follow_activity = {
-        "id": "https://social.example/activities/follow-1",
+        "id": "https://remote.example/activities/follow-1",
         "type": "Follow",
-        "actor": "https://social.example/users/alice",
-        "object": "https://remote.example/users/bob",
+        "actor": "https://remote.example/users/alice",
+        "object": local_profile_url,
     }
     invalid_follow_activity = {
-        "id": "https://social.example/activities/follow-2",
+        "id": "https://remote.example/activities/follow-2",
         "type": "Follow",
-        "actor": "https://social.example/users/alice",
+        "actor": "https://remote.example/users/alice",
     }
 
     dispatch_activity(follow_activity)
