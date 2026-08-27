@@ -57,6 +57,25 @@ def handle_follow(activity: dict) -> None:
     print("Follow activity:", activity)
 
 
+def accept_follow_request(profile_url: str, actor: str) -> None:
+    profile = local_profiles.get(profile_url)
+
+    if profile is None or actor not in profile["pending_follow_requests"]:
+        return
+
+    profile["pending_follow_requests"].remove(actor)
+    profile["followers"].add(actor)
+
+
+def reject_follow_request(profile_url: str, actor: str) -> None:
+    profile = local_profiles.get(profile_url)
+
+    if profile is None or actor not in profile["pending_follow_requests"]:
+        return
+
+    profile["pending_follow_requests"].remove(actor)
+
+
 def handle_like(activity: dict) -> None:
     print("Like activity:", activity)
 

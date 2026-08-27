@@ -3,9 +3,11 @@ from contextlib import redirect_stdout
 from io import StringIO
 
 from experiments.activitypub_inbox import (
+    accept_follow_request,
     dispatch_activity,
     local_profiles,
     processed_activity_ids,
+    reject_follow_request,
     validate_activity,
 )
 
@@ -119,6 +121,42 @@ class DispatchActivityTests(unittest.TestCase):
         self.assertEqual(set(), profile["followers"])
         self.assertEqual(set(), profile["pending_follow_requests"])
         self.assertNotIn(unknown_target_activity["object"], local_profiles)
+
+
+class FollowRequestDecisionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        local_profiles.clear()
+
+        self.actor_url = "https://remote.example/users/alice"
+        self.profile_url = "https://social.example/users/bob"
+        local_profiles[self.profile_url] = {
+            "is_private": True,
+            "followers": set(),
+            "pending_follow_requests": {self.actor_url},
+        }
+
+    def test_accept_pending_follow_request(self) -> None:
+        accept_follow_request(self.profile_url, self.actor_url)
+
+        profile = local_profiles[self.profile_url]
+        self.assertNotIn(self.actor_url, profile["pending_follow_requests"])
+        self.assertIn(self.actor_url, profile["followers"])
+
+    def test_reject_pending_follow_request(self) -> None:
+        reject_follow_request(self.profile_url, self.actor_url)
+
+        profile = local_profiles[self.profile_url]
+        self.assertNotIn(self.actor_url, profile["pending_follow_requests"])
+        self.assertNotIn(self.actor_url, profile["followers"])
+
+    def test_accept_nonexistent_pending_request_does_not_change_state(self) -> None:
+        unknown_actor = "https://remote.example/users/unknown"
+
+        accept_follow_request(self.profile_url, unknown_actor)
+
+        profile = local_profiles[self.profile_url]
+        self.assertEqual({self.actor_url}, profile["pending_follow_requests"])
+        self.assertEqual(set(), profile["followers"])
 
 
 if __name__ == "__main__":
