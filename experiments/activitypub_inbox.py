@@ -1,7 +1,20 @@
 """Small ActivityPub inbox-dispatch experiment."""
 
+from urllib.parse import urlparse
+
 
 processed_activity_ids = set()
+
+
+def extract_hostname(value: object):
+    if not isinstance(value, str):
+        return None
+
+    try:
+        parsed_url = urlparse(value)
+        return parsed_url.hostname if parsed_url.scheme else None
+    except ValueError:
+        return None
 
 
 def validate_activity(activity: dict) -> bool:
@@ -10,7 +23,22 @@ def validate_activity(activity: dict) -> bool:
     if not required_fields.issubset(activity):
         return False
 
-    return activity["type"] != "Follow" or "object" in activity
+    if activity["type"] != "Follow":
+        return True
+
+    if "object" not in activity:
+        return False
+
+    id_hostname = extract_hostname(activity["id"])
+    actor_hostname = extract_hostname(activity["actor"])
+    object_hostname = extract_hostname(activity["object"])
+
+    return bool(
+        id_hostname
+        and actor_hostname
+        and object_hostname
+        and id_hostname == actor_hostname
+    )
 
 
 def handle_follow(activity: dict) -> None:
@@ -56,15 +84,15 @@ def dispatch_activity(activity: dict) -> None:
 
 if __name__ == "__main__":
     follow_activity = {
-        "id": "follow-1",
+        "id": "https://social.example/activities/follow-1",
         "type": "Follow",
-        "actor": "actor-1",
-        "object": "actor-2",
+        "actor": "https://social.example/users/alice",
+        "object": "https://remote.example/users/bob",
     }
     invalid_follow_activity = {
-        "id": "follow-2",
+        "id": "https://social.example/activities/follow-2",
         "type": "Follow",
-        "actor": "actor-1",
+        "actor": "https://social.example/users/alice",
     }
 
     dispatch_activity(follow_activity)

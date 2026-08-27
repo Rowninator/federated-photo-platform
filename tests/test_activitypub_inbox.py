@@ -10,21 +10,31 @@ from experiments.activitypub_inbox import (
 
 
 class ValidateActivityTests(unittest.TestCase):
-    def test_valid_follow_passes_validation(self) -> None:
+    def test_follow_with_matching_identity_hostnames_passes_validation(self) -> None:
         activity = {
-            "id": "follow-1",
+            "id": "https://social.example/activities/follow-1",
             "type": "Follow",
-            "actor": "actor-1",
-            "object": "actor-2",
+            "actor": "https://social.example/users/alice",
+            "object": "https://remote.example/users/bob",
         }
 
         self.assertTrue(validate_activity(activity))
 
+    def test_follow_with_different_identity_hostnames_fails_validation(self) -> None:
+        activity = {
+            "id": "https://social.example/activities/follow-1",
+            "type": "Follow",
+            "actor": "https://other.example/users/alice",
+            "object": "https://remote.example/users/bob",
+        }
+
+        self.assertFalse(validate_activity(activity))
+
     def test_follow_without_object_fails_validation(self) -> None:
         activity = {
-            "id": "follow-1",
+            "id": "https://social.example/activities/follow-1",
             "type": "Follow",
-            "actor": "actor-1",
+            "actor": "https://social.example/users/alice",
         }
 
         self.assertFalse(validate_activity(activity))
@@ -44,10 +54,10 @@ class DispatchActivityTests(unittest.TestCase):
 
     def test_new_valid_activity_is_processed(self) -> None:
         activity = {
-            "id": "follow-1",
+            "id": "https://social.example/activities/follow-1",
             "type": "Follow",
-            "actor": "actor-1",
-            "object": "actor-2",
+            "actor": "https://social.example/users/alice",
+            "object": "https://remote.example/users/bob",
         }
         output = StringIO()
 
@@ -55,14 +65,14 @@ class DispatchActivityTests(unittest.TestCase):
             dispatch_activity(activity)
 
         self.assertIn("Follow activity:", output.getvalue())
-        self.assertIn("follow-1", processed_activity_ids)
+        self.assertIn(activity["id"], processed_activity_ids)
 
     def test_second_attempt_is_rejected_as_duplicate(self) -> None:
         activity = {
-            "id": "follow-1",
+            "id": "https://social.example/activities/follow-1",
             "type": "Follow",
-            "actor": "actor-1",
-            "object": "actor-2",
+            "actor": "https://social.example/users/alice",
+            "object": "https://remote.example/users/bob",
         }
         output = StringIO()
 
