@@ -1,6 +1,9 @@
 """Small ActivityPub inbox-dispatch experiment."""
 
 
+processed_activity_ids = set()
+
+
 def validate_activity(activity: dict) -> bool:
     required_fields = {"id", "type", "actor"}
 
@@ -31,16 +34,24 @@ def dispatch_activity(activity: dict) -> None:
         print("Invalid activity")
         return
 
+    activity_id = activity["id"]
+    if activity_id in processed_activity_ids:
+        print("Duplicate activity")
+        return
+
     activity_type = activity.get("type")
 
     if activity_type == "Follow":
-        handle_follow(activity)
+        handler = handle_follow
     elif activity_type == "Like":
-        handle_like(activity)
+        handler = handle_like
     elif activity_type == "Create":
-        handle_create(activity)
+        handler = handle_create
     else:
-        handle_unsupported(activity)
+        handler = handle_unsupported
+
+    handler(activity)
+    processed_activity_ids.add(activity_id)
 
 
 if __name__ == "__main__":
