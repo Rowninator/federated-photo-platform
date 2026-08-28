@@ -4,6 +4,8 @@ from io import StringIO
 
 from experiments.activitypub_inbox import (
     accept_follow_request,
+    build_accept_activity,
+    build_reject_activity,
     dispatch_activity,
     local_profiles,
     processed_activity_ids,
@@ -157,6 +159,52 @@ class FollowRequestDecisionTests(unittest.TestCase):
         profile = local_profiles[self.profile_url]
         self.assertEqual({self.actor_url}, profile["pending_follow_requests"])
         self.assertEqual(set(), profile["followers"])
+
+
+class FollowResponseBuilderTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.local_actor = "https://social.example/users/bob"
+        self.follow_activity = {
+            "id": "https://remote.example/activities/follow-1",
+            "type": "Follow",
+            "actor": "https://remote.example/users/alice",
+            "object": self.local_actor,
+        }
+
+    def test_accept_has_expected_type_and_actor(self) -> None:
+        activity = build_accept_activity(
+            "https://social.example/activities/accept-1",
+            self.local_actor,
+            self.follow_activity,
+        )
+
+        self.assertEqual("Accept", activity["type"])
+        self.assertEqual(self.local_actor, activity["actor"])
+
+    def test_reject_has_expected_type_and_actor(self) -> None:
+        activity = build_reject_activity(
+            "https://social.example/activities/reject-1",
+            self.local_actor,
+            self.follow_activity,
+        )
+
+        self.assertEqual("Reject", activity["type"])
+        self.assertEqual(self.local_actor, activity["actor"])
+
+    def test_builders_preserve_original_follow_activity(self) -> None:
+        accept = build_accept_activity(
+            "https://social.example/activities/accept-1",
+            self.local_actor,
+            self.follow_activity,
+        )
+        reject = build_reject_activity(
+            "https://social.example/activities/reject-1",
+            self.local_actor,
+            self.follow_activity,
+        )
+
+        self.assertEqual(self.follow_activity, accept["object"])
+        self.assertEqual(self.follow_activity, reject["object"])
 
 
 if __name__ == "__main__":

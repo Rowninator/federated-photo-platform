@@ -76,6 +76,28 @@ def reject_follow_request(profile_url: str, actor: str) -> None:
     profile["pending_follow_requests"].remove(actor)
 
 
+def build_accept_activity(
+    activity_id: str, actor: str, follow_activity: dict
+) -> dict:
+    return {
+        "id": activity_id,
+        "type": "Accept",
+        "actor": actor,
+        "object": follow_activity,
+    }
+
+
+def build_reject_activity(
+    activity_id: str, actor: str, follow_activity: dict
+) -> dict:
+    return {
+        "id": activity_id,
+        "type": "Reject",
+        "actor": actor,
+        "object": follow_activity,
+    }
+
+
 def handle_like(activity: dict) -> None:
     print("Like activity:", activity)
 
