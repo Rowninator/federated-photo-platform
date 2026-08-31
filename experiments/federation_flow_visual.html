@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Federated Follow Flow Simulation</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #f6f8fb;
+      --surface: #ffffff;
+      --surface-soft: #eef3f8;
+      --text: #172033;
+      --muted: #617087;
+      --border: #cbd5e1;
+      --remote: #3157a4;
+      --remote-soft: #e8eefb;
+      --local: #16745a;
+      --local-soft: #e4f4ee;
+      --message: #8a4b14;
+      --message-soft: #fff2df;
+      --focus: #2563eb;
+      --shadow: 0 12px 30px rgba(23, 32, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--page);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    button:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .app {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      font-size: clamp(1.55rem, 3vw, 2.1rem);
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font-size: 1.05rem;
+    }
+
+    h3 {
+      margin-bottom: 6px;
+      font-size: 1rem;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .simulation-label {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .control-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      padding: 18px 20px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .step-label {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .step-description {
+      margin-bottom: 0;
+      font-size: 1.05rem;
+      font-weight: 650;
+    }
+
+    .progress-track {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 5px;
+      margin-top: 12px;
+    }
+
+    .progress-segment {
+      height: 5px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+    }
+
+    .progress-segment.complete {
+      background: var(--local);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .button {
+      min-height: 42px;
+      padding: 9px 15px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    .button.primary {
+      border-color: var(--local);
+      background: var(--local);
+      color: #ffffff;
+    }
+
+    .button:hover:not(:disabled) {
+      filter: brightness(0.96);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .federation-stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 190px minmax(0, 1fr);
+      gap: 22px;
+      align-items: stretch;
+      margin-top: 24px;
+    }
+
+    .server {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .server-header {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .server.remote .server-header {
+      background: var(--remote-soft);
+    }
+
+    .server.local .server-header {
+      background: var(--local-soft);
+    }
+
+    .server-mark {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 0.8rem;
+      font-weight: 750;
+    }
+
+    .remote .server-mark {
+      background: var(--remote);
+    }
+
+    .local .server-mark {
+      background: var(--local);
+    }
+
+    .server-header p,
+    .profile p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .server-body {
+      padding: 18px;
+    }
+
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 17px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .avatar {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--surface-soft);
+      font-weight: 750;
+    }
+
+    .privacy {
+      display: inline-block;
+      margin-top: 4px;
+      color: var(--local);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .state-block {
+      padding-top: 16px;
+    }
+
+    .state-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .count {
+      display: grid;
+      min-width: 26px;
+      height: 26px;
+      padding: 0 7px;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+    }
+
+    .state-list {
+      min-height: 44px;
+      margin: 0 0 15px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--surface-soft);
+      list-style: none;
+      overflow-wrap: anywhere;
+      font-size: 0.88rem;
+    }
+
+    .state-list .empty {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .status-line {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .status-line strong {
+      color: var(--text);
+    }
+
+    .route {
+      position: relative;
+      min-height: 310px;
+      overflow: visible;
+    }
+
+    .route::before {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      left: 8px;
+      height: 2px;
+      background: var(--border);
+      content: "";
+    }
+
+    .route-label {
+      position: absolute;
+      top: calc(50% + 16px);
+      right: 0;
+      left: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: center;
+    }
+
+    .message {
+      position: absolute;
+      z-index: 2;
+      top: calc(50% - 42px);
+      left: 50%;
+      display: none;
+      width: 104px;
+      margin-left: -52px;
+      padding: 8px 10px;
+      border: 1px solid #d8a464;
+      border-radius: 8px;
+      background: var(--message-soft);
+      color: var(--message);
+      font-size: 0.78rem;
+      font-weight: 750;
+      text-align: center;
+      box-shadow: 0 8px 18px rgba(77, 44, 11, 0.14);
+    }
+
+    .message.visible {
+      display: block;
+    }
+
+    .message.to-local {
+      animation: travel-right 900ms ease-in-out both;
+    }
+
+    .message.to-remote {
+      animation: travel-left 900ms ease-in-out both;
+    }
+
+    @keyframes travel-right {
+      from { transform: translateX(-88px); }
+      to { transform: translateX(88px); }
+    }
+
+    @keyframes travel-left {
+      from { transform: translateX(88px); }
+      to { transform: translateX(-88px); }
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+      gap: 22px;
+      margin-top: 24px;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 18px 20px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+
+    pre {
+      min-height: 196px;
+      max-height: 360px;
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 9px;
+      background: #172033;
+      color: #edf3ff;
+      font: 0.82rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .legend {
+      display: grid;
+      gap: 14px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .legend li {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .legend-route {
+      position: relative;
+      height: 2px;
+      background: var(--border);
+    }
+
+    .legend-message {
+      padding: 4px 6px;
+      border: 1px solid #d8a464;
+      border-radius: 6px;
+      background: var(--message-soft);
+      color: var(--message);
+      font-size: 0.72rem;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .prototype-note {
+      margin: 20px 0 0;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #0e1522;
+        --surface: #151f2f;
+        --surface-soft: #1c293b;
+        --text: #edf3ff;
+        --muted: #aab7ca;
+        --border: #35445a;
+        --remote: #7194e0;
+        --remote-soft: #1b2a49;
+        --local: #54bd9d;
+        --local-soft: #17372f;
+        --message: #f1bd75;
+        --message-soft: #3a2b17;
+        --focus: #8cb5ff;
+        --shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+      }
+
+      .button.primary,
+      .server-mark {
+        color: #101722;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .topbar,
+      .control-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .simulation-label {
+        justify-self: start;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .federation-stage {
+        grid-template-columns: 1fr;
+      }
+
+      .route {
+        min-height: 132px;
+      }
+
+      .route::before {
+        top: 8px;
+        bottom: 8px;
+        left: 50%;
+        width: 2px;
+        height: auto;
+      }
+
+      .route-label {
+        top: 50%;
+        right: auto;
+        left: calc(50% + 24px);
+        width: 120px;
+        transform: translateY(-50%);
+        text-align: left;
+      }
+
+      .message {
+        top: 50%;
+        left: calc(50% - 64px);
+        margin: -18px 0 0;
+      }
+
+      .message.to-local {
+        animation-name: travel-down;
+      }
+
+      .message.to-remote {
+        animation-name: travel-up;
+      }
+
+      @keyframes travel-down {
+        from { transform: translateY(-43px); }
+        to { transform: translateY(43px); }
+      }
+
+      @keyframes travel-up {
+        from { transform: translateY(43px); }
+        to { transform: translateY(-43px); }
+      }
+
+      .details-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .app {
+        width: min(100% - 20px, 1120px);
+        padding-top: 20px;
+      }
+
+      .control-panel,
+      .panel {
+        padding: 15px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .message.to-local,
+      .message.to-remote {
+        animation-duration: 1ms;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>Federated Follow flow</h1>
+        <p class="subtitle">Step through how a private local profile handles a remote Follow and prepares an Accept response.</p>
+      </div>
+      <div class="simulation-label">In-memory prototype simulation</div>
+    </header>
+
+    <section class="control-panel" aria-labelledby="step-description">
+      <div aria-live="polite">
+        <div class="step-label" id="step-label">Ready · 0 of 9</div>
+        <p class="step-description" id="step-description">The two servers are idle. Advance to create Alice's Follow activity.</p>
+        <div class="progress-track" id="progress-track" aria-label="Simulation progress"></div>
+      </div>
+      <div class="controls">
+        <button class="button primary" id="next-step" type="button">Next Step</button>
+        <button class="button" id="reset" type="button">Reset</button>
+      </div>
+    </section>
+
+    <section class="federation-stage" aria-label="Remote and local server simulation">
+      <article class="server remote">
+        <header class="server-header">
+          <div class="server-mark" aria-hidden="true">R</div>
+          <div>
+            <h2>Remote Server</h2>
+            <p>remote.example</p>
+          </div>
+        </header>
+        <div class="server-body">
+          <div class="profile">
+            <div class="avatar" aria-hidden="true">A</div>
+            <div>
+              <h3>Alice</h3>
+              <p>@alice@remote.example</p>
+            </div>
+          </div>
+          <p class="status-line"><strong>Status:</strong> <span id="alice-status">No activity sent</span></p>
+          <p class="status-line"><strong>Inbox:</strong> <span id="alice-inbox">Waiting</span></p>
+        </div>
+      </article>
+
+      <div class="route" aria-label="Federation message route">
+        <div class="message" id="traveling-message" aria-live="polite">Follow →</div>
+        <div class="route-label">simulated federation route</div>
+      </div>
+
+      <article class="server local">
+        <header class="server-header">
+          <div class="server-mark" aria-hidden="true">L</div>
+          <div>
+            <h2>Local Server</h2>
+            <p>social.example</p>
+          </div>
+        </header>
+        <div class="server-body">
+          <div class="profile">
+            <div class="avatar" aria-hidden="true">B</div>
+            <div>
+              <h3>Bob</h3>
+              <p>@bob@social.example</p>
+              <span class="privacy">Private profile</span>
+            </div>
+          </div>
+
+          <div class="state-block">
+            <div class="state-row">
+              <h3>Pending requests</h3>
+              <span class="count" id="pending-count">0</span>
+            </div>
+            <ul class="state-list" id="pending-list"><li class="empty">None</li></ul>
+
+            <div class="state-row">
+              <h3>Followers</h3>
+              <span class="count" id="followers-count">0</span>
+            </div>
+            <ul class="state-list" id="followers-list"><li class="empty">None</li></ul>
+
+            <div class="state-row">
+              <h3>Outbound queue</h3>
+              <span class="count" id="queue-count">0</span>
+            </div>
+            <ul class="state-list" id="queue-list"><li class="empty">Empty</li></ul>
+
+            <p class="status-line"><strong>Validation:</strong> <span id="validation-status">Not started</span></p>
+            <p class="status-line"><strong>Bob's decision:</strong> <span id="decision-status">Waiting</span></p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="details-grid">
+      <article class="panel">
+        <h2 id="activity-heading">Activity object</h2>
+        <pre id="activity-object" aria-labelledby="activity-heading">Advance to create a Follow activity.</pre>
+      </article>
+
+      <aside class="panel">
+        <h2>Legend</h2>
+        <ul class="legend">
+          <li>
+            <span class="legend-route" aria-hidden="true"></span>
+            <span>The line is the conceptual route between independently operated servers.</span>
+          </li>
+          <li>
+            <span class="legend-message" aria-hidden="true">Activity</span>
+            <span>A moving message is a simulated ActivityPub delivery, not a real HTTP request.</span>
+          </li>
+        </ul>
+        <p class="prototype-note">This page only visualizes the repository's current in-memory Python prototype. It performs no networking, authentication, signing, or real federation.</p>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const followActivity = {
+      id: "https://remote.example/activities/follow-1",
+      type: "Follow",
+      actor: "https://remote.example/users/alice",
+      object: "https://social.example/users/bob"
+    };
+
+    const acceptActivity = {
+      id: "https://social.example/activities/accept-1",
+      type: "Accept",
+      actor: "https://social.example/users/bob",
+      object: followActivity
+    };
+
+    const steps = [
+      "The two servers are idle. Advance to create Alice's Follow activity.",
+      "Alice creates a Follow activity addressed to Bob.",
+      "The Follow travels from remote.example to social.example.",
+      "The local server validates the Follow's required fields and identity host.",
+      "Because Bob is private, Alice is added to pending follow requests.",
+      "Bob accepts Alice's pending follow request.",
+      "Alice moves from pending requests into Bob's followers.",
+      "The local server creates an ActivityPub Accept containing the original Follow.",
+      "The Accept is placed in the in-memory outbound queue.",
+      "The Accept travels back toward Alice's inbox."
+    ];
+
+    let currentStep = 0;
+
+    const elements = {
+      stepLabel: document.getElementById("step-label"),
+      stepDescription: document.getElementById("step-description"),
+      progressTrack: document.getElementById("progress-track"),
+      next: document.getElementById("next-step"),
+      reset: document.getElementById("reset"),
+      message: document.getElementById("traveling-message"),
+      aliceStatus: document.getElementById("alice-status"),
+      aliceInbox: document.getElementById("alice-inbox"),
+      pendingList: document.getElementById("pending-list"),
+      pendingCount: document.getElementById("pending-count"),
+      followersList: document.getElementById("followers-list"),
+      followersCount: document.getElementById("followers-count"),
+      queueList: document.getElementById("queue-list"),
+      queueCount: document.getElementById("queue-count"),
+      validation: document.getElementById("validation-status"),
+      decision: document.getElementById("decision-status"),
+      activityHeading: document.getElementById("activity-heading"),
+      activityObject: document.getElementById("activity-object")
+    };
+
+    for (let index = 1; index <= 9; index += 1) {
+      const segment = document.createElement("span");
+      segment.className = "progress-segment";
+      segment.setAttribute("aria-hidden", "true");
+      elements.progressTrack.appendChild(segment);
+    }
+
+    function setStateList(listElement, countElement, values, emptyLabel) {
+      listElement.replaceChildren();
+      countElement.textContent = String(values.length);
+
+      const item = document.createElement("li");
+      if (values.length === 0) {
+        item.className = "empty";
+        item.textContent = emptyLabel;
+      } else {
+        item.textContent = values.join(", ");
+      }
+      listElement.appendChild(item);
+    }
+
+    function animateMessage(direction, label) {
+      elements.message.className = "message";
+      elements.message.textContent = label;
+      void elements.message.offsetWidth;
+      elements.message.classList.add("visible", direction);
+    }
+
+    function render(animate = false) {
+      elements.stepLabel.textContent = currentStep === 0
+        ? "Ready · 0 of 9"
+        : `Step ${currentStep} of 9`;
+      elements.stepDescription.textContent = steps[currentStep];
+      elements.next.disabled = currentStep === 9;
+      elements.next.textContent = currentStep === 9 ? "Flow Complete" : "Next Step";
+
+      [...elements.progressTrack.children].forEach((segment, index) => {
+        segment.classList.toggle("complete", index < currentStep);
+      });
+
+      const pending = currentStep >= 4 && currentStep < 6
+        ? ["Alice · remote.example"]
+        : [];
+      const followers = currentStep >= 6
+        ? ["Alice · remote.example"]
+        : [];
+      const queued = currentStep >= 8
+        ? [currentStep >= 9 ? "Accept → Alice's inbox (delivery simulated)" : "Accept → Alice's inbox"]
+        : [];
+
+      setStateList(elements.pendingList, elements.pendingCount, pending, "None");
+      setStateList(elements.followersList, elements.followersCount, followers, "None");
+      setStateList(elements.queueList, elements.queueCount, queued, "Empty");
+
+      elements.aliceStatus.textContent = currentStep >= 2 ? "Follow sent" : "No activity sent";
+      elements.aliceInbox.textContent = currentStep >= 9 ? "Accept received (simulated)" : "Waiting";
+      elements.validation.textContent = currentStep >= 3
+        ? "Valid — required fields present; id and actor hosts match"
+        : "Not started";
+      elements.decision.textContent = currentStep >= 5 ? "Accepted" : "Waiting";
+
+      if (currentStep === 0) {
+        elements.activityHeading.textContent = "Activity object";
+        elements.activityObject.textContent = "Advance to create a Follow activity.";
+      } else if (currentStep < 7) {
+        elements.activityHeading.textContent = "Follow activity";
+        elements.activityObject.textContent = JSON.stringify(followActivity, null, 2);
+      } else {
+        elements.activityHeading.textContent = "Accept activity";
+        elements.activityObject.textContent = JSON.stringify(acceptActivity, null, 2);
+      }
+
+      elements.message.className = "message";
+      if (animate && currentStep === 2) {
+        animateMessage("to-local", "Follow →");
+      } else if (animate && currentStep === 9) {
+        animateMessage("to-remote", "← Accept");
+      }
+    }
+
+    elements.next.addEventListener("click", () => {
+      if (currentStep < 9) {
+        currentStep += 1;
+        render(true);
+      }
+    });
+
+    elements.reset.addEventListener("click", () => {
+      currentStep = 0;
+      render(false);
+      elements.next.focus();
+    });
+
+    render(false);
+  </script>
+</body>
+</html>
