@@ -9,6 +9,7 @@ and update them when their underlying facts change.
 | Area | Purpose | Update when |
 | --- | --- | --- |
 | [Product](product/overview.md) | Confirmed product intent, boundaries, and open questions | Product understanding changes |
+| [Federation Follow flow](federation-follow-flow.md) | Observed Pixelfed behavior, current prototype scope, and known gaps | Follow-flow findings or experiments change |
 | [Decisions](decisions/README.md) | Accepted or superseded consequential choices | A durable choice is approved or revisited |
 | [Plans](plans/README.md) | Time-bounded plans for concrete work | A substantial effort starts, changes, or finishes |
 
@@ -23,4 +24,3 @@ and update them when their underlying facts change.
 
 Add a new documentation category only after multiple documents need it. This
 keeps the structure proportional to the project.
-
