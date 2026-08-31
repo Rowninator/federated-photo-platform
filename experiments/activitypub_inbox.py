@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 processed_activity_ids = set()
 local_profiles = {}
+outbound_activities = []
 
 
 def extract_hostname(value: object):
@@ -98,8 +99,20 @@ def build_reject_activity(
     }
 
 
+def queue_outbound_activity(activity: dict, destination: str) -> None:
+    outbound_activities.append(
+        {
+            "destination": destination,
+            "activity": activity,
+        }
+    )
+
+
 def process_accept_follow_request(
-    profile_url: str, follow_activity: dict, response_activity_id: str
+    profile_url: str,
+    follow_activity: dict,
+    response_activity_id: str,
+    destination: str | None = None,
 ) -> dict | None:
     profile = local_profiles.get(profile_url)
     actor = follow_activity.get("actor")
@@ -108,11 +121,19 @@ def process_accept_follow_request(
         return None
 
     accept_follow_request(profile_url, actor)
-    return build_accept_activity(response_activity_id, profile_url, follow_activity)
+    response = build_accept_activity(response_activity_id, profile_url, follow_activity)
+
+    if destination is not None:
+        queue_outbound_activity(response, destination)
+
+    return response
 
 
 def process_reject_follow_request(
-    profile_url: str, follow_activity: dict, response_activity_id: str
+    profile_url: str,
+    follow_activity: dict,
+    response_activity_id: str,
+    destination: str | None = None,
 ) -> dict | None:
     profile = local_profiles.get(profile_url)
     actor = follow_activity.get("actor")
@@ -121,7 +142,12 @@ def process_reject_follow_request(
         return None
 
     reject_follow_request(profile_url, actor)
-    return build_reject_activity(response_activity_id, profile_url, follow_activity)
+    response = build_reject_activity(response_activity_id, profile_url, follow_activity)
+
+    if destination is not None:
+        queue_outbound_activity(response, destination)
+
+    return response
 
 
 def handle_like(activity: dict) -> None:

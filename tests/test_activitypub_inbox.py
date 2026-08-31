@@ -8,6 +8,7 @@ from experiments.activitypub_inbox import (
     build_reject_activity,
     dispatch_activity,
     local_profiles,
+    outbound_activities,
     process_accept_follow_request,
     process_reject_follow_request,
     processed_activity_ids,
@@ -212,9 +213,11 @@ class FollowResponseBuilderTests(unittest.TestCase):
 class FollowRequestProcessingTests(unittest.TestCase):
     def setUp(self) -> None:
         local_profiles.clear()
+        outbound_activities.clear()
 
         self.actor_url = "https://remote.example/users/alice"
         self.profile_url = "https://social.example/users/bob"
+        self.destination = "https://remote.example/users/alice/inbox"
         self.follow_activity = {
             "id": "https://remote.example/activities/follow-1",
             "type": "Follow",
@@ -274,6 +277,55 @@ class FollowRequestProcessingTests(unittest.TestCase):
         self.assertIsNone(reject_response)
         self.assertEqual({self.actor_url}, profile["pending_follow_requests"])
         self.assertEqual(set(), profile["followers"])
+
+    def test_accept_queues_one_accept_activity(self) -> None:
+        response = process_accept_follow_request(
+            self.profile_url,
+            self.follow_activity,
+            "https://social.example/activities/accept-1",
+            self.destination,
+        )
+
+        self.assertEqual(1, len(outbound_activities))
+        self.assertIs(response, outbound_activities[0]["activity"])
+        self.assertEqual("Accept", outbound_activities[0]["activity"]["type"])
+
+    def test_reject_queues_one_reject_activity(self) -> None:
+        response = process_reject_follow_request(
+            self.profile_url,
+            self.follow_activity,
+            "https://social.example/activities/reject-1",
+            self.destination,
+        )
+
+        self.assertEqual(1, len(outbound_activities))
+        self.assertIs(response, outbound_activities[0]["activity"])
+        self.assertEqual("Reject", outbound_activities[0]["activity"]["type"])
+
+    def test_queued_destination_is_preserved(self) -> None:
+        process_accept_follow_request(
+            self.profile_url,
+            self.follow_activity,
+            "https://social.example/activities/accept-1",
+            self.destination,
+        )
+
+        self.assertEqual(self.destination, outbound_activities[0]["destination"])
+
+    def test_nonexistent_pending_request_queues_nothing(self) -> None:
+        unknown_follow = self.follow_activity | {
+            "actor": "https://remote.example/users/unknown"
+        }
+
+        response = process_accept_follow_request(
+            self.profile_url,
+            unknown_follow,
+            "https://social.example/activities/accept-1",
+            self.destination,
+        )
+
+        self.assertIsNone(response)
+        self.assertEqual([], outbound_activities)
 
 
 if __name__ == "__main__":
