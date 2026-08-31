@@ -98,6 +98,32 @@ def build_reject_activity(
     }
 
 
+def process_accept_follow_request(
+    profile_url: str, follow_activity: dict, response_activity_id: str
+) -> dict | None:
+    profile = local_profiles.get(profile_url)
+    actor = follow_activity.get("actor")
+
+    if profile is None or actor not in profile["pending_follow_requests"]:
+        return None
+
+    accept_follow_request(profile_url, actor)
+    return build_accept_activity(response_activity_id, profile_url, follow_activity)
+
+
+def process_reject_follow_request(
+    profile_url: str, follow_activity: dict, response_activity_id: str
+) -> dict | None:
+    profile = local_profiles.get(profile_url)
+    actor = follow_activity.get("actor")
+
+    if profile is None or actor not in profile["pending_follow_requests"]:
+        return None
+
+    reject_follow_request(profile_url, actor)
+    return build_reject_activity(response_activity_id, profile_url, follow_activity)
+
+
 def handle_like(activity: dict) -> None:
     print("Like activity:", activity)
 

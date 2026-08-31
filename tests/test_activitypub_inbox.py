@@ -8,6 +8,8 @@ from experiments.activitypub_inbox import (
     build_reject_activity,
     dispatch_activity,
     local_profiles,
+    process_accept_follow_request,
+    process_reject_follow_request,
     processed_activity_ids,
     reject_follow_request,
     validate_activity,
@@ -205,6 +207,73 @@ class FollowResponseBuilderTests(unittest.TestCase):
 
         self.assertEqual(self.follow_activity, accept["object"])
         self.assertEqual(self.follow_activity, reject["object"])
+
+
+class FollowRequestProcessingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        local_profiles.clear()
+
+        self.actor_url = "https://remote.example/users/alice"
+        self.profile_url = "https://social.example/users/bob"
+        self.follow_activity = {
+            "id": "https://remote.example/activities/follow-1",
+            "type": "Follow",
+            "actor": self.actor_url,
+            "object": self.profile_url,
+        }
+        local_profiles[self.profile_url] = {
+            "is_private": True,
+            "followers": set(),
+            "pending_follow_requests": {self.actor_url},
+        }
+
+    def test_accept_returns_activity_and_updates_state(self) -> None:
+        response = process_accept_follow_request(
+            self.profile_url,
+            self.follow_activity,
+            "https://social.example/activities/accept-1",
+        )
+
+        profile = local_profiles[self.profile_url]
+        self.assertEqual("Accept", response["type"])
+        self.assertIs(self.follow_activity, response["object"])
+        self.assertNotIn(self.actor_url, profile["pending_follow_requests"])
+        self.assertIn(self.actor_url, profile["followers"])
+
+    def test_reject_returns_activity_and_updates_state(self) -> None:
+        response = process_reject_follow_request(
+            self.profile_url,
+            self.follow_activity,
+            "https://social.example/activities/reject-1",
+        )
+
+        profile = local_profiles[self.profile_url]
+        self.assertEqual("Reject", response["type"])
+        self.assertIs(self.follow_activity, response["object"])
+        self.assertNotIn(self.actor_url, profile["pending_follow_requests"])
+        self.assertNotIn(self.actor_url, profile["followers"])
+
+    def test_nonexistent_pending_request_returns_none_without_state_change(self) -> None:
+        unknown_follow = self.follow_activity | {
+            "actor": "https://remote.example/users/unknown"
+        }
+
+        accept_response = process_accept_follow_request(
+            self.profile_url,
+            unknown_follow,
+            "https://social.example/activities/accept-1",
+        )
+        reject_response = process_reject_follow_request(
+            self.profile_url,
+            unknown_follow,
+            "https://social.example/activities/reject-1",
+        )
+
+        profile = local_profiles[self.profile_url]
+        self.assertIsNone(accept_response)
+        self.assertIsNone(reject_response)
+        self.assertEqual({self.actor_url}, profile["pending_follow_requests"])
+        self.assertEqual(set(), profile["followers"])
 
 
 if __name__ == "__main__":
