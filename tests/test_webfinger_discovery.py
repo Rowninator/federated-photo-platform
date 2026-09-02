@@ -2,6 +2,8 @@ import unittest
 
 from experiments.webfinger_discovery import (
     build_webfinger_document,
+    build_webfinger_lookup_url,
+    build_webfinger_resource,
     find_activitypub_actor_url,
 )
 
@@ -46,6 +48,36 @@ class WebFingerDiscoveryTests(unittest.TestCase):
         }
 
         self.assertIsNone(find_activitypub_actor_url(document))
+
+    def test_builds_webfinger_resource(self) -> None:
+        self.assertEqual(
+            "acct:alice@remote.example",
+            build_webfinger_resource("alice@remote.example"),
+        )
+
+    def test_builds_encoded_webfinger_lookup_url(self) -> None:
+        self.assertEqual(
+            "https://remote.example/.well-known/webfinger"
+            "?resource=acct%3Aalice%40remote.example",
+            build_webfinger_lookup_url("alice@remote.example"),
+        )
+
+    def test_malformed_account_identifiers_raise_value_error(self) -> None:
+        malformed_identifiers = (
+            "alice",
+            "@remote.example",
+            "alice@",
+            "alice@remote@example",
+        )
+
+        for account_identifier in malformed_identifiers:
+            for builder in (build_webfinger_resource, build_webfinger_lookup_url):
+                with self.subTest(
+                    account_identifier=account_identifier,
+                    builder=builder.__name__,
+                ):
+                    with self.assertRaises(ValueError):
+                        builder(account_identifier)
 
 
 if __name__ == "__main__":
