@@ -38,12 +38,30 @@ their directories.
 
 ## Validation
 
-There are currently no build or test commands. For documentation-only changes:
+There is currently no build command. Run the ActivityPub experiment tests from
+the repository root with:
+
+```text
+py -3 -m unittest discover -s tests
+```
+
+Run the private-profile Follow flow demo with:
+
+```text
+py -3 experiments\demo_follow_flow.py
+```
+
+Run the WebFinger discovery demo with:
+
+```text
+py -3 experiments\webfinger_discovery.py
+```
+
+For documentation-only changes:
 
 - inspect the diff for unsupported claims;
 - verify relative links and file names;
 - ensure every new document has a clear purpose and owner or update trigger.
 
-If executable tooling is introduced later, document its setup and validation
-commands here in the same change.
-
+If more executable tooling is introduced later, document its setup and
+validation commands here in the same change.
