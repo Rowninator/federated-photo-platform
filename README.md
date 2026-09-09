@@ -5,13 +5,15 @@ social network inspired by Pixelfed. The product is intended to let people use
 independently operated servers that can communicate with one another, rather
 than requiring everyone to join one company's central service.
 
-The project is currently in its **documentation and discovery phase**. No
-application architecture, technology stack, federation protocol, or delivery
-plan has been selected yet.
+The project now includes a Laravel backend foundation in `server/`, including
+local identity and session authentication. Broader product architecture and
+federation implementation remain intentionally deferred.
 
 ## Start here
 
 - [Documentation index](docs/README.md) — where project knowledge belongs
+- [Architecture](ARCHITECTURE.md) — approved foundation-level architecture
+  decisions
 - [Product overview](docs/product/overview.md) — current facts, boundaries, and
   open questions
 - [Decision records](docs/decisions/README.md) — how durable technical and
@@ -23,8 +25,6 @@ plan has been selected yet.
 
 ## Current status
 
-There is no application to build, run, or test yet. The next useful work is to
-clarify product requirements and record decisions as they are actually made.
+The Laravel application in `server/` is the current implementation foundation.
 Documentation should remain concise and should distinguish confirmed facts
-from proposals and unknowns.
-
+from proposals and unknowns as the product grows.

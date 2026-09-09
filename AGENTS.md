@@ -4,17 +4,18 @@
 
 Help this repository grow into a cross-platform, federated photo-sharing
 application while preserving a reliable record of what the project actually
-knows. At this stage, improve the environment for future development; do not
-prematurely implement the application.
+knows. Extend the established foundation incrementally; do not prematurely add
+future systems.
 
 ## Source of truth
 
 Read these files before making changes:
 
 1. `README.md` for project status and navigation.
-2. `docs/product/overview.md` for confirmed product context and open questions.
-3. `docs/decisions/` for accepted decisions, when any exist.
-4. The relevant plan in `docs/plans/`, when work has an active plan.
+2. `ARCHITECTURE.md` for approved foundation-level architecture decisions.
+3. `docs/product/overview.md` for confirmed product context and open questions.
+4. `docs/decisions/` for accepted decisions, when any exist.
+5. The relevant plan in `docs/plans/`, when work has an active plan.
 
 More specific `AGENTS.md` files may be added later and take precedence within
 their directories.
@@ -23,8 +24,8 @@ their directories.
 
 - Treat an unanswered question as unknown, not as permission to choose an
   answer silently.
-- Do not infer a programming language, framework, database, federation
-  protocol, hosting model, repository layout, or client architecture.
+- Follow established decisions in `ARCHITECTURE.md`; treat undocumented
+  technology, federation, hosting, and client choices as unknown.
 - Separate confirmed facts, proposals, and decisions in documentation.
 - Record a consequential, durable choice as a decision record when the choice
   is approved; do not create decision records merely to speculate.
@@ -38,8 +39,8 @@ their directories.
 
 ## Validation
 
-There is currently no build command. Run the ActivityPub experiment tests from
-the repository root with:
+For Laravel application validation, follow `server/AGENTS.md`. Run the
+ActivityPub experiment tests from the repository root with:
 
 ```text
 py -3 -m unittest discover -s tests
