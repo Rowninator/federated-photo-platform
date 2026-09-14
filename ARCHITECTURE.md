@@ -23,6 +23,22 @@ project maintainers should update it when those decisions change.
 - Token and mobile authentication, username changes, and federation identity
   remain separate and intentionally deferred.
 
+## Local media foundation
+
+- `Media` belongs to `Profile`; deletion is restricted to the owning user.
+- Image bytes live in filesystem/object storage, not the relational database.
+  The database stores ownership and media metadata.
+- Application code addresses media by Laravel filesystem disk + server-generated
+  relative path, not machine-specific paths or client filenames.
+- Development uses a private local `media` disk.
+- Uploaded originals remain private. Display and thumbnail variants are derived
+  from the retained original and can be rebuilt from it.
+- Initial supported upload formats are JPEG and PNG.
+- Image processing is synchronous for now; asynchronous processing is deferred
+  to the future queue module.
+- Production storage can later move behind the same Laravel filesystem
+  abstraction without rewriting domain behavior.
+
 ## Intentionally deferred
 
 Broader web, mobile, and federation systems are intentionally deferred.

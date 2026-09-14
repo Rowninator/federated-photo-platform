@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\DeleteMediaController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\SessionController;
+use App\Http\Controllers\UploadMediaController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -21,3 +23,7 @@ Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth'
 Route::get('/account', AccountController::class)->middleware('auth');
 
 Route::patch('/profile', ProfileController::class)->middleware('auth');
+
+Route::post('/media', UploadMediaController::class)->middleware('auth');
+
+Route::delete('/media/{media}', DeleteMediaController::class)->middleware('auth');
