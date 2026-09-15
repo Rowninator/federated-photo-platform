@@ -14,6 +14,8 @@ class Media extends Model
      */
     protected $fillable = [
         'profile_id',
+        'status_id',
+        'position',
         'disk',
         'original_path',
         'display_path',
@@ -29,12 +31,18 @@ class Media extends Model
         return $this->belongsTo(Profile::class);
     }
 
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(Status::class);
+    }
+
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
+            'position' => 'integer',
             'size_bytes' => 'integer',
             'width' => 'integer',
             'height' => 'integer',

@@ -54,6 +54,50 @@ class MediaTest extends TestCase
         ]);
     }
 
+    public function test_previously_uploaded_media_can_be_attached_to_a_status(): void
+    {
+        $profile = $this->createProfile('alice');
+        $media = $profile->media()->create($this->mediaAttributes())->fresh();
+        $second = $profile->media()->create($this->mediaAttributes('second'));
+        $profile->media()->create($this->mediaAttributes('unattached'));
+        $status = $profile->statuses()->create(['caption' => 'Photos']);
+
+        $this->assertNull($media->status_id);
+        $this->assertNull($media->position);
+        $this->assertNull($media->status);
+
+        $media->update(['status_id' => $status->id, 'position' => 0]);
+        $second->update(['status_id' => $status->id, 'position' => 1]);
+        $media->refresh();
+
+        $this->assertTrue($media->status->is($status));
+        $this->assertTrue($media->profile->is($profile));
+        $this->assertSame(0, $media->position);
+        $this->assertSame(1, $second->fresh()->position);
+        $this->assertEqualsCanonicalizing([$media->id, $second->id], $status->media->modelKeys());
+        $this->assertDatabaseHas('media', ['id' => $media->id, 'status_id' => $status->id, ...$this->mediaAttributes()]);
+    }
+
+    public function test_media_status_must_exist(): void
+    {
+        $profile = $this->createProfile('alice');
+
+        $this->expectException(QueryException::class);
+
+        $profile->media()->create(['status_id' => 999, ...$this->mediaAttributes()]);
+    }
+
+    public function test_status_with_attached_media_cannot_be_deleted(): void
+    {
+        $profile = $this->createProfile('alice');
+        $status = $profile->statuses()->create([]);
+        $profile->media()->create(['status_id' => $status->id, ...$this->mediaAttributes()]);
+
+        $this->expectException(QueryException::class);
+
+        $status->delete();
+    }
+
     public function test_a_profile_with_media_cannot_be_deleted(): void
     {
         $profile = $this->createProfile('alice');

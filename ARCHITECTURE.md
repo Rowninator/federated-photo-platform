@@ -25,7 +25,8 @@ project maintainers should update it when those decisions change.
 
 ## Local media foundation
 
-- `Media` belongs to `Profile`; deletion is restricted to the owning user.
+- `Media` belongs to `Profile`; uploads exist independently until attached to a
+  `Status`, and deletion is restricted to the owning user.
 - Image bytes live in filesystem/object storage, not the relational database.
   The database stores ownership and media metadata.
 - Application code addresses media by Laravel filesystem disk + server-generated
@@ -38,6 +39,22 @@ project maintainers should update it when those decisions change.
   to the future queue module.
 - Production storage can later move behind the same Laravel filesystem
   abstraction without rewriting domain behavior.
+
+## Local statuses and interactions
+
+- `Status` is the core local content entity shared by ordinary posts, replies,
+  and reposts.
+- A top-level photo Status contains one to four ordered `Media` records. Post
+  and reply captions are limited to 500 characters; reposts have no caption.
+- A repost references the canonical original Status rather than copying its
+  content or Media.
+- Likes and Bookmarks are `Profile`-to-`Status` relationships. Database
+  uniqueness prevents duplicate Likes, Bookmarks, and reposts for the same
+  Profile and target; Bookmarks remain private user state.
+- Module 6 comments are text-only and restricted to top-level posts. Nested
+  replies and Media attachments are unsupported, and only the author may
+  delete a comment through the comment endpoint.
+- Visibility, followers, and timelines remain intentionally deferred.
 
 ## Intentionally deferred
 

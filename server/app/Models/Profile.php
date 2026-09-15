@@ -52,6 +52,21 @@ class Profile extends Model
         return $this->hasMany(Media::class);
     }
 
+    public function statuses(): HasMany
+    {
+        return $this->hasMany(Status::class);
+    }
+
+    public function likes(): HasMany
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    public function bookmarks(): HasMany
+    {
+        return $this->hasMany(Bookmark::class);
+    }
+
     protected function username(): Attribute
     {
         return Attribute::make(
