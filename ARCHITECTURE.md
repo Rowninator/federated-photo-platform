@@ -54,7 +54,23 @@ project maintainers should update it when those decisions change.
 - Module 6 comments are text-only and restricted to top-level posts. Nested
   replies and Media attachments are unsupported, and only the author may
   delete a comment through the comment endpoint.
-- Visibility, followers, and timelines remain intentionally deferred.
+- Status visibility and timelines remain intentionally deferred.
+
+## Local following and relationships
+
+- `Follow` is a directed `Profile`-to-`Profile` relationship. A public target
+  establishes it immediately; a private target creates a pending
+  `FollowRequest`.
+- Accepting a FollowRequest atomically establishes the Follow and removes the
+  request. Database uniqueness prevents duplicate Follows and FollowRequests,
+  and self-follow is invalid.
+- Unfollow, pending-request cancellation, and follower removal operate only on
+  the specified direction of the relationship.
+- `Profile.is_private` currently means only "new followers require approval."
+  It does not hide Status content from non-followers, and changing it does not
+  change existing Status visibility.
+- Blocking, muting, and notifications are deliberately deferred. Federation
+  remains a separate, paused workstream.
 
 ## Intentionally deferred
 

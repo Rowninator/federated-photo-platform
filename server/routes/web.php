@@ -6,10 +6,15 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\CreatePostController;
 use App\Http\Controllers\DeleteMediaController;
 use App\Http\Controllers\DeletePostController;
+use App\Http\Controllers\FollowProfileController;
+use App\Http\Controllers\FollowRequestController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\IncomingFollowRequestController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfilePrivacyController;
 use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\RemoveFollowerController;
 use App\Http\Controllers\RepostController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\ShowPostController;
@@ -30,6 +35,15 @@ Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth'
 Route::get('/account', AccountController::class)->middleware('auth');
 
 Route::patch('/profile', ProfileController::class)->middleware('auth');
+Route::patch('/profile/privacy', ProfilePrivacyController::class)->middleware('auth');
+
+Route::post('/profiles/{profile}/follow', FollowProfileController::class)->middleware('auth');
+Route::delete('/profiles/{profile}/follow', [FollowProfileController::class, 'destroy'])->middleware('auth');
+Route::delete('/followers/{profile}', RemoveFollowerController::class)->middleware('auth');
+
+Route::get('/follow-requests', IncomingFollowRequestController::class)->middleware('auth');
+Route::post('/follow-requests/{followRequest}/accept', [FollowRequestController::class, 'accept'])->middleware('auth');
+Route::delete('/follow-requests/{followRequest}', [FollowRequestController::class, 'destroy'])->middleware('auth');
 
 Route::post('/media', UploadMediaController::class)->middleware('auth');
 

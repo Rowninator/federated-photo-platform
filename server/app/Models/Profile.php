@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Profile extends Model
@@ -19,6 +20,7 @@ class Profile extends Model
         'username',
         'display_name',
         'bio',
+        'is_private',
     ];
 
     /**
@@ -67,10 +69,52 @@ class Profile extends Model
         return $this->hasMany(Bookmark::class);
     }
 
+    public function outgoingFollows(): HasMany
+    {
+        return $this->hasMany(Follow::class, 'follower_profile_id');
+    }
+
+    public function incomingFollows(): HasMany
+    {
+        return $this->hasMany(Follow::class, 'followed_profile_id');
+    }
+
+    public function followingProfiles(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'follows', 'follower_profile_id', 'followed_profile_id')
+            ->withTimestamps();
+    }
+
+    public function followerProfiles(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'follows', 'followed_profile_id', 'follower_profile_id')
+            ->withTimestamps();
+    }
+
+    public function outgoingFollowRequests(): HasMany
+    {
+        return $this->hasMany(FollowRequest::class, 'follower_profile_id');
+    }
+
+    public function incomingFollowRequests(): HasMany
+    {
+        return $this->hasMany(FollowRequest::class, 'followed_profile_id');
+    }
+
     protected function username(): Attribute
     {
         return Attribute::make(
             set: fn (string $value): string => self::normalizeUsername($value),
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_private' => 'boolean',
+        ];
     }
 }
