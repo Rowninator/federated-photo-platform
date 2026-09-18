@@ -9,10 +9,12 @@ use App\Http\Controllers\DeletePostController;
 use App\Http\Controllers\FollowProfileController;
 use App\Http\Controllers\FollowRequestController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\HomeTimelineController;
 use App\Http\Controllers\IncomingFollowRequestController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilePrivacyController;
+use App\Http\Controllers\PublicTimelineController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\RemoveFollowerController;
 use App\Http\Controllers\RepostController;
@@ -44,6 +46,9 @@ Route::delete('/followers/{profile}', RemoveFollowerController::class)->middlewa
 Route::get('/follow-requests', IncomingFollowRequestController::class)->middleware('auth');
 Route::post('/follow-requests/{followRequest}/accept', [FollowRequestController::class, 'accept'])->middleware('auth');
 Route::delete('/follow-requests/{followRequest}', [FollowRequestController::class, 'destroy'])->middleware('auth');
+
+Route::get('/timelines/home', HomeTimelineController::class)->middleware('auth');
+Route::get('/timelines/public', PublicTimelineController::class);
 
 Route::post('/media', UploadMediaController::class)->middleware('auth');
 

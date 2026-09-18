@@ -54,7 +54,7 @@ project maintainers should update it when those decisions change.
 - Module 6 comments are text-only and restricted to top-level posts. Nested
   replies and Media attachments are unsupported, and only the author may
   delete a comment through the comment endpoint.
-- Status visibility and timelines remain intentionally deferred.
+- Status visibility remains intentionally deferred.
 
 ## Local following and relationships
 
@@ -71,6 +71,26 @@ project maintainers should update it when those decisions change.
   change existing Status visibility.
 - Blocking, muting, and notifications are deliberately deferred. Federation
   remains a separate, paused workstream.
+
+## Local timelines
+
+- Home and public timelines are currently database-backed. Redis and feed
+  caching are deliberately deferred to Module 9.
+- Home timeline membership consists of the authenticated Profile and Profiles
+  reached through established Follow rows; pending FollowRequests do not grant
+  membership.
+- Timelines contain only ordinary top-level Status records. Replies and repost
+  Status rows are deliberately excluded from this initial baseline. The public
+  timeline includes qualifying posts from every local Profile.
+- `Profile.is_private` controls follow approval only; timelines do not yet
+  enforce follower-only Status visibility.
+- Timeline ordering is `created_at DESC, id DESC`. Reads use cursor/keyset
+  pagination rather than offset/page-number pagination, with a default page
+  size of 20 and an accepted range of 1–40.
+- Timeline reads eager-load Profile and position-ordered Media, and load Like,
+  reply, and repost counts through aggregate counts rather than per-item
+  relationship queries.
+- The relational baseline includes a supporting Status timeline index.
 
 ## Intentionally deferred
 
