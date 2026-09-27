@@ -16,7 +16,7 @@ class UploadMediaController extends Controller
         );
 
         return response()->json($media->only([
-            'id', 'mime_type', 'size_bytes', 'width', 'height',
-        ]), 201);
+            'id', 'processing_status',
+        ]), 202);
     }
 }

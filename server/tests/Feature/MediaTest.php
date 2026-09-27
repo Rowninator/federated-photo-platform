@@ -29,6 +29,9 @@ class MediaTest extends TestCase
         $this->assertSame($attributes['size_bytes'], $media->size_bytes);
         $this->assertSame($attributes['width'], $media->width);
         $this->assertSame($attributes['height'], $media->height);
+        $this->assertSame(Media::PROCESSING_PENDING, $media->processing_status);
+        $this->assertNull($media->processed_at);
+        $this->assertNull($media->processing_error);
         $this->assertNotNull($media->created_at);
         $this->assertNotNull($media->updated_at);
     }

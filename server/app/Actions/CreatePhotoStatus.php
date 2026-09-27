@@ -22,7 +22,9 @@ class CreatePhotoStatus
 
             // Check all candidate rows under the lock before creating or attaching anything.
             if ($media->count() !== count($mediaIds) || $media->contains(
-                fn (Media $item): bool => (string) $item->profile_id !== (string) $profile->id || $item->status_id !== null
+                fn (Media $item): bool => (string) $item->profile_id !== (string) $profile->id
+                    || $item->status_id !== null
+                    || $item->processing_status !== Media::PROCESSING_READY
             )) {
                 throw ValidationException::withMessages([
                     'media_ids' => 'One or more selected images are unavailable.',

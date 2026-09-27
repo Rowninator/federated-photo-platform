@@ -7,6 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Media extends Model
 {
+    public const PROCESSING_PENDING = 'pending';
+
+    public const PROCESSING_PROCESSING = 'processing';
+
+    public const PROCESSING_READY = 'ready';
+
+    public const PROCESSING_FAILED = 'failed';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -24,6 +32,9 @@ class Media extends Model
         'size_bytes',
         'width',
         'height',
+        'processing_status',
+        'processed_at',
+        'processing_error',
     ];
 
     public function profile(): BelongsTo
@@ -46,6 +57,7 @@ class Media extends Model
             'size_bytes' => 'integer',
             'width' => 'integer',
             'height' => 'integer',
+            'processed_at' => 'datetime',
         ];
     }
 }

@@ -2,13 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessMediaVariants;
 use App\Models\Media;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Mockery;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -21,6 +22,7 @@ class UploadMediaTest extends TestCase
         parent::setUp();
 
         Storage::fake('media');
+        Queue::fake();
     }
 
     public function test_guests_cannot_upload_media(): void
@@ -30,17 +32,17 @@ class UploadMediaTest extends TestCase
         ])->assertUnauthorized();
     }
 
-    public function test_jpeg_and_png_uploads_store_owned_metadata_and_private_variants(): void
+    public function test_jpeg_and_png_uploads_store_owned_pending_media_and_dispatch_processing(): void
     {
         $user = $this->signInWithProfile();
         $disk = Storage::disk('media');
 
-        foreach ([['jpg', 2400, 1600, 1920, 1280], ['png', 1600, 2400, 1280, 1920], ['jpg', 640, 480, 640, 480], ['png', 480, 640, 480, 640]] as [$extension, $width, $height, $displayWidth, $displayHeight]) {
+        foreach ([['jpg', 2400, 1600], ['png', 1600, 2400], ['jpg', 640, 480], ['png', 480, 640]] as [$extension, $width, $height]) {
             $source = UploadedFile::fake()->image("photo.{$extension}", $width, $height);
             // A real UploadedFile checks content, independently of client metadata.
             $image = new UploadedFile($source->getPathname(), 'upload.bin', 'application/octet-stream', UPLOAD_ERR_OK, true);
 
-            $response = $this->postJson('/media', ['image' => $image])->assertCreated();
+            $response = $this->postJson('/media', ['image' => $image])->assertAccepted();
             $media = Media::findOrFail($response->json('id'));
             $mimeType = $extension === 'jpg' ? 'image/jpeg' : 'image/png';
 
@@ -48,10 +50,7 @@ class UploadMediaTest extends TestCase
             $this->assertSame('media', $media->disk);
             $response->assertExactJson([
                 'id' => $media->id,
-                'mime_type' => $mimeType,
-                'size_bytes' => $image->getSize(),
-                'width' => $width,
-                'height' => $height,
+                'processing_status' => Media::PROCESSING_PENDING,
             ]);
             $this->assertDatabaseHas('media', [
                 'id' => $media->id,
@@ -60,23 +59,28 @@ class UploadMediaTest extends TestCase
                 'size_bytes' => $image->getSize(),
                 'width' => $width,
                 'height' => $height,
+                'processing_status' => Media::PROCESSING_PENDING,
+                'processed_at' => null,
+                'processing_error' => null,
             ]);
 
             foreach (['original', 'display', 'thumbnail'] as $variant) {
                 $path = $media->{$variant.'_path'};
                 $this->assertMatchesRegularExpression('#^'.$user->profile->id.'/[0-9a-f-]{36}/'.$variant.'\\.'.$extension.'$#', $path);
-                $disk->assertExists($path);
             }
 
+            $disk->assertExists($media->original_path);
+            $disk->assertMissing([$media->display_path, $media->thumbnail_path]);
             $this->assertSame($image->get(), $disk->get($media->original_path));
-            $display = getimagesizefromstring($disk->get($media->display_path));
-            $thumbnail = getimagesizefromstring($disk->get($media->thumbnail_path));
-            $this->assertSame([$displayWidth, $displayHeight, $mimeType], [$display[0], $display[1], $display['mime']]);
-            $this->assertSame([400, 400, $mimeType], [$thumbnail[0], $thumbnail[1], $thumbnail['mime']]);
+
+            Queue::assertPushed(ProcessMediaVariants::class, fn (ProcessMediaVariants $job): bool => $job->mediaId === $media->id
+                && $job->queue === 'media'
+                && $job->afterCommit === true);
         }
 
         $this->assertDatabaseCount('media', 4);
-        $this->assertCount(12, $disk->allFiles());
+        $this->assertCount(4, $disk->allFiles());
+        Queue::assertPushed(ProcessMediaVariants::class, 4);
     }
 
     public function test_missing_and_unsuccessful_uploads_are_rejected(): void
@@ -115,7 +119,7 @@ class UploadMediaTest extends TestCase
         $this->signInWithProfile();
 
         $this->postJson('/media', ['image' => UploadedFile::fake()->image('photo.jpg')->size(15000)])
-            ->assertCreated();
+            ->assertAccepted();
 
         $this->postJson('/media', ['image' => UploadedFile::fake()->image('photo.jpg')->size(15001)])
             ->assertUnprocessable()->assertJsonValidationErrors('image');
@@ -127,7 +131,7 @@ class UploadMediaTest extends TestCase
 
         foreach ([[12000, 1], [1, 12000]] as [$width, $height]) {
             $this->postJson('/media', ['image' => UploadedFile::fake()->image('photo.png', $width, $height)])
-                ->assertCreated();
+                ->assertAccepted();
         }
 
         foreach ([[12001, 1], [1, 12001]] as [$width, $height]) {
@@ -150,11 +154,17 @@ class UploadMediaTest extends TestCase
             .substr($source->get(), 2);
         $image = UploadedFile::fake()->createWithContent('camera.jpg', $bytes);
 
-        $response = $this->postJson('/media', ['image' => $image])->assertCreated();
+        $response = $this->postJson('/media', ['image' => $image])->assertAccepted();
         $media = Media::findOrFail($response->json('id'));
         $this->assertSame([400, 800], [$media->width, $media->height]);
         $disk = Storage::disk('media');
         $this->assertSame($bytes, $disk->get($media->original_path));
+
+        (new ProcessMediaVariants($media->id))->handle();
+        $media->refresh();
+
+        $this->assertSame(Media::PROCESSING_READY, $media->processing_status);
+        $this->assertNotNull($media->processed_at);
         $display = getimagesizefromstring($disk->get($media->display_path));
         $this->assertSame([400, 800], [$display[0], $display[1]]);
 
@@ -175,8 +185,11 @@ class UploadMediaTest extends TestCase
         imagepng($canvas);
         $image = UploadedFile::fake()->createWithContent('bands.png', ob_get_clean());
 
-        $response = $this->postJson('/media', ['image' => $image])->assertCreated();
+        $response = $this->postJson('/media', ['image' => $image])->assertAccepted();
         $media = Media::findOrFail($response->json('id'));
+
+        (new ProcessMediaVariants($media->id))->handle();
+
         $thumbnail = imagecreatefromstring(Storage::disk('media')->get($media->thumbnail_path));
 
         foreach ([[0, 0], [399, 399], [200, 200]] as [$x, $y]) {
@@ -190,7 +203,7 @@ class UploadMediaTest extends TestCase
         $disk = Storage::disk('media');
         $disk->put('existing/original.jpg', 'existing upload');
         Event::listen('eloquent.created: '.Media::class, function () use ($disk): void {
-            $this->assertCount(4, $disk->allFiles());
+            $this->assertCount(2, $disk->allFiles());
 
             throw new RuntimeException('Simulated persistence failure.');
         });
@@ -200,25 +213,7 @@ class UploadMediaTest extends TestCase
 
         $this->assertDatabaseCount('media', 0);
         $this->assertSame(['existing/original.jpg'], $disk->allFiles());
-    }
-
-    public function test_failed_variant_write_cleans_up_the_original(): void
-    {
-        $this->signInWithProfile();
-        $disk = Storage::disk('media');
-        $failingDisk = Mockery::mock($disk);
-        $failingDisk->shouldReceive('put')->once()->andReturnUsing(function () use ($disk): bool {
-            $this->assertCount(1, $disk->allFiles());
-
-            return false;
-        });
-        Storage::set('media', $failingDisk);
-
-        $this->postJson('/media', ['image' => UploadedFile::fake()->image('photo.jpg', 800, 600)])
-            ->assertInternalServerError();
-
-        $this->assertDatabaseCount('media', 0);
-        $this->assertSame([], $disk->allFiles());
+        Queue::assertNothingPushed();
     }
 
     private function signInWithProfile(): User

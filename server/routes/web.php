@@ -19,6 +19,7 @@ use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\RemoveFollowerController;
 use App\Http\Controllers\RepostController;
 use App\Http\Controllers\SessionController;
+use App\Http\Controllers\ShowMediaController;
 use App\Http\Controllers\ShowPostController;
 use App\Http\Controllers\UploadMediaController;
 use Illuminate\Support\Facades\Route;
@@ -51,7 +52,7 @@ Route::get('/timelines/home', HomeTimelineController::class)->middleware('auth')
 Route::get('/timelines/public', PublicTimelineController::class);
 
 Route::post('/media', UploadMediaController::class)->middleware('auth');
-
+Route::get('/media/{media}', ShowMediaController::class)->middleware('auth');
 Route::delete('/media/{media}', DeleteMediaController::class)->middleware('auth');
 
 Route::post('/posts', CreatePostController::class)->middleware('auth');

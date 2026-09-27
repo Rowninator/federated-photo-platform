@@ -7,6 +7,11 @@ use App\Models\User;
 
 class MediaPolicy
 {
+    public function view(User $user, Media $media): bool
+    {
+        return $user->profile()->whereKey($media->profile_id)->exists();
+    }
+
     public function delete(User $user, Media $media): bool
     {
         return $user->profile()->whereKey($media->profile_id)->exists();

@@ -35,8 +35,16 @@ project maintainers should update it when those decisions change.
 - Uploaded originals remain private. Display and thumbnail variants are derived
   from the retained original and can be rebuilt from it.
 - Initial supported upload formats are JPEG and PNG.
-- Image processing is synchronous for now; asynchronous processing is deferred
-  to the future queue module.
+- Upload authentication and validation, trusted source inspection, private
+  original persistence, and creation of a pending `Media` row happen
+  synchronously. Display and thumbnail variants are generated asynchronously.
+- Media processing states are `pending`, `processing`, `ready`, and `failed`.
+  Processing is dispatched after the database transaction commits and runs on
+  the `media` queue. Only ready Media may be attached to a Status.
+- Terminal processing failure retains the private original for retry or
+  recovery.
+- Owners may inspect minimal processing state through `GET /media/{media}`;
+  internal storage paths and `processing_error` are not exposed.
 - Production storage can later move behind the same Laravel filesystem
   abstraction without rewriting domain behavior.
 
@@ -74,8 +82,8 @@ project maintainers should update it when those decisions change.
 
 ## Local timelines
 
-- Home and public timelines are currently database-backed. Redis and feed
-  caching are deliberately deferred to Module 9.
+- Home and public timeline Status queries remain database-backed; complete
+  timelines and timeline JSON are not cached.
 - Home timeline membership consists of the authenticated Profile and Profiles
   reached through established Follow rows; pending FollowRequests do not grant
   membership.
@@ -91,6 +99,22 @@ project maintainers should update it when those decisions change.
   reply, and repost counts through aggregate counts rather than per-item
   relationship queries.
 - The relational baseline includes a supporting Status timeline index.
+
+## Derived Redis state and asynchronous work
+
+- Redis cache is derived, rebuildable state. It currently caches established
+  following Profile IDs, while the relational `Follow` table remains
+  canonical. Established Follow changes invalidate the relevant cache; cache
+  loss rebuilds membership from the database rather than losing social data.
+- Redis separately stores pending asynchronous jobs. Queue state is not
+  canonical application content, and cache and queue remain distinct Redis
+  responsibilities.
+- Horizon supervises and observes Redis queue workers in the supported
+  Linux/WSL environment; native Windows PHP is not the Horizon runtime. The
+  local supervisor processes the `media` and `default` queues.
+- Normal automated tests use the array cache and synchronous or fake queues as
+  appropriate, so they do not require live Redis. Real Redis and Horizon
+  integration are verified separately.
 
 ## Intentionally deferred
 

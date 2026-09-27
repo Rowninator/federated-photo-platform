@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Jobs\ProcessMediaVariants;
 use App\Models\Media;
 use App\Models\Profile;
 use Illuminate\Http\UploadedFile;
@@ -30,41 +31,54 @@ class StoreMediaUpload
         $originalPath = $directory.'/original.'.$extension;
         $displayPath = $directory.'/display.'.$extension;
         $thumbnailPath = $directory.'/thumbnail.'.$extension;
+        $mediaId = null;
 
         try {
             if ($disk->putFileAs($directory, $upload, 'original.'.$extension, 'private') === false) {
                 throw new RuntimeException('Unable to store media original.');
             }
 
-            // GD re-encodes pixels without copying embedded source metadata.
-            $display = (clone $image)->scaleDown(1920, 1920)->encodeByMediaType($mimeType, strip: true);
-            if (! $disk->put($displayPath, (string) $display, 'private')) {
-                throw new RuntimeException('Unable to store media display variant.');
-            }
+            return DB::transaction(function () use (
+                $profile,
+                $originalPath,
+                $displayPath,
+                $thumbnailPath,
+                $mimeType,
+                $upload,
+                $width,
+                $height,
+                &$mediaId,
+            ): Media {
+                $media = $profile->media()->create([
+                    'disk' => 'media',
+                    'original_path' => $originalPath,
+                    'display_path' => $displayPath,
+                    'thumbnail_path' => $thumbnailPath,
+                    'mime_type' => $mimeType,
+                    'size_bytes' => $upload->getSize(),
+                    'width' => $width,
+                    'height' => $height,
+                    'processing_status' => Media::PROCESSING_PENDING,
+                ]);
+                $mediaId = $media->id;
 
-            $thumbnail = $image->cover(400, 400, 'center')->encodeByMediaType($mimeType, strip: true);
-            if (! $disk->put($thumbnailPath, (string) $thumbnail, 'private')) {
-                throw new RuntimeException('Unable to store media thumbnail.');
-            }
+                ProcessMediaVariants::dispatch($media->id)->afterCommit();
 
-            return DB::transaction(fn () => $profile->media()->create([
-                'disk' => 'media',
-                'original_path' => $originalPath,
-                'display_path' => $displayPath,
-                'thumbnail_path' => $thumbnailPath,
-                'mime_type' => $mimeType,
-                'size_bytes' => $upload->getSize(),
-                'width' => $width,
-                'height' => $height,
-            ]));
+                return $media;
+            });
         } catch (Throwable $exception) {
+            // A queue push can fail after commit; never remove an original owned by a persisted row.
+            $mediaPersisted = $mediaId !== null && Media::query()->whereKey($mediaId)->exists();
+
             // The database cannot roll back files; this directory belongs only to this upload.
-            try {
-                if (! $disk->deleteDirectory($directory)) {
-                    report(new RuntimeException('Unable to clean up failed media upload.'));
+            if (! $mediaPersisted) {
+                try {
+                    if (! $disk->deleteDirectory($directory)) {
+                        report(new RuntimeException('Unable to clean up failed media upload.'));
+                    }
+                } catch (Throwable $cleanupException) {
+                    report($cleanupException);
                 }
-            } catch (Throwable $cleanupException) {
-                report($cleanupException);
             }
 
             throw $exception;

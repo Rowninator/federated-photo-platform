@@ -2,21 +2,21 @@
 
 namespace App\Queries;
 
-use App\Models\Follow;
 use App\Models\Profile;
 use App\Models\Status;
+use App\Services\FollowingProfileIdsCache;
 use Illuminate\Database\Eloquent\Builder;
 
 class HomeTimelineQuery
 {
+    public function __construct(private FollowingProfileIdsCache $followingProfileIds) {}
+
     /**
      * @return Builder<Status>
      */
     public function for(Profile $profile): Builder
     {
-        $followedProfileIds = Follow::query()
-            ->select('followed_profile_id')
-            ->where('follower_profile_id', $profile->id);
+        $followedProfileIds = $this->followingProfileIds->get($profile);
 
         return Status::query()
             ->where(function (Builder $query) use ($profile, $followedProfileIds): void {

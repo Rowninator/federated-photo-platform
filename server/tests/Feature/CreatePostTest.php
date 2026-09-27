@@ -120,6 +120,25 @@ class CreatePostTest extends TestCase
         }
     }
 
+    public function test_media_that_is_not_ready_cannot_be_attached(): void
+    {
+        $profile = $this->createProfile('alice');
+        $this->actingAs($profile->user);
+
+        foreach ([Media::PROCESSING_PENDING, Media::PROCESSING_PROCESSING, Media::PROCESSING_FAILED] as $status) {
+            $media = $this->createMedia($profile, $status);
+
+            $this->postJson('/posts', ['media_ids' => [$media->id]])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('media_ids');
+
+            $this->assertNull($media->fresh()->status_id);
+            $this->assertNull($media->fresh()->position);
+        }
+
+        $this->assertDatabaseCount('statuses', 0);
+    }
+
     public function test_failure_after_attachment_updates_rolls_back_status_and_all_attachments(): void
     {
         $profile = $this->createProfile('alice');
@@ -148,7 +167,7 @@ class CreatePostTest extends TestCase
         return Profile::create(['user_id' => User::factory()->create()->id, 'username' => $username]);
     }
 
-    private function createMedia(Profile $profile): Media
+    private function createMedia(Profile $profile, string $processingStatus = Media::PROCESSING_READY): Media
     {
         $directory = (string) Str::uuid();
 
@@ -161,6 +180,7 @@ class CreatePostTest extends TestCase
             'size_bytes' => 12345,
             'width' => 800,
             'height' => 600,
+            'processing_status' => $processingStatus,
         ]);
     }
 }

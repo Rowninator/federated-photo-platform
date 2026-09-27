@@ -3,11 +3,14 @@
 namespace App\Actions;
 
 use App\Models\Profile;
+use App\Services\FollowingProfileIdsCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class FollowProfile
 {
+    public function __construct(private FollowingProfileIdsCache $followingProfileIds) {}
+
     /**
      * @return array{following: bool, requested: bool}
      */
@@ -19,13 +22,16 @@ class FollowProfile
             ]);
         }
 
-        return DB::transaction(function () use ($follower, $target): array {
+        $followCreated = false;
+
+        $state = DB::transaction(function () use ($follower, $target, &$followCreated): array {
             $target = Profile::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             $pair = ['followed_profile_id' => $target->id];
 
             if (! $target->is_private) {
                 $follower->outgoingFollowRequests()->where($pair)->delete();
-                $follower->outgoingFollows()->firstOrCreate($pair);
+                $follow = $follower->outgoingFollows()->firstOrCreate($pair);
+                $followCreated = $follow->wasRecentlyCreated;
 
                 return ['following' => true, 'requested' => false];
             }
@@ -40,5 +46,11 @@ class FollowProfile
 
             return ['following' => false, 'requested' => true];
         });
+
+        if ($followCreated) {
+            $this->followingProfileIds->forget($follower);
+        }
+
+        return $state;
     }
 }
