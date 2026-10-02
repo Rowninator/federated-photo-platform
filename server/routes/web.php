@@ -22,6 +22,7 @@ use App\Http\Controllers\SessionController;
 use App\Http\Controllers\ShowMediaController;
 use App\Http\Controllers\ShowPostController;
 use App\Http\Controllers\UploadMediaController;
+use App\Http\Controllers\WebFingerController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -29,6 +30,7 @@ Route::get('/', function () {
 });
 
 Route::get('/health', HealthController::class);
+Route::get('/.well-known/webfinger', WebFingerController::class);
 
 Route::post('/register', RegisterController::class);
 

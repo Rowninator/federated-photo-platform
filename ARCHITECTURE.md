@@ -20,8 +20,8 @@ project maintainers should update it when those decisions change.
 - Each local `User` has one `Profile`.
 - Local usernames are normalized to lowercase and are unique.
 - Local web authentication uses Laravel session authentication.
-- Token and mobile authentication, username changes, and federation identity
-  remain separate and intentionally deferred.
+- Token and mobile authentication and username changes remain separate and
+  intentionally deferred.
 
 ## Local media foundation
 
@@ -77,8 +77,7 @@ project maintainers should update it when those decisions change.
 - `Profile.is_private` currently means only "new followers require approval."
   It does not hide Status content from non-followers, and changing it does not
   change existing Status visibility.
-- Blocking, muting, and notifications are deliberately deferred. Federation
-  remains a separate, paused workstream.
+- Blocking, muting, notifications, and federation delivery remain deferred.
 
 ## Local timelines
 
@@ -115,6 +114,24 @@ project maintainers should update it when those decisions change.
 - Normal automated tests use the array cache and synchronous or fake queues as
   appropriate, so they do not require live Redis. Real Redis and Horizon
   integration are verified separately.
+
+## Federation identity and WebFinger
+
+- A local federation address is `acct:{username}@{domain}`. The canonical
+  domain and base URL come from configuration, never the incoming request
+  `Host`; the stable future actor URI is `{base-url}/users/{username}`.
+- The public `/.well-known/webfinger` endpoint returns JRD whose ActivityPub
+  `self` link identifies that future actor URI. Email and private account data
+  are not exposed.
+- Remote handles normalize to `acct:` URIs. The actor path is never guessed:
+  remote WebFinger must return exactly one supported `rel=self` ActivityPub or
+  ActivityStreams link. No remote Profile is persisted, and Actor document
+  retrieval is deferred to Module 11 with Actor representation.
+- Remote HTTP discovery is SSRF-sensitive. The current baseline permits only
+  validated HTTPS federation destinations; it rejects localhost, local-only
+  hosts, IP literals, insecure schemes, and URL credentials, and disables
+  redirects. Comprehensive federation and network hardening is deferred to
+  Module 14.
 
 ## Intentionally deferred
 
